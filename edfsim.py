@@ -11,47 +11,12 @@ Tasks are considered to be periodic (except for one-shot tasks, see below).
 
 """
 
+from sys import exit
 from time import time
-from collections import MutableMapping
 
 
 class NoScheduledTaskException(Exception):
     pass
-
-
-class TaskPool(MutableMapping):
-
-    """Behave like a dict, but return an empty list on undefined key access."""
-
-    def __init__(self, *args, **kwargs):
-        # TODO: make a static class var, not an object var
-        self.default_value = []
-        self.store = dict()
-        self.update(dict(*args, **kwargs))
-
-    def __getitem__(self, key):
-        return self.store[self.__keytransform__(key)]
-
-    def __setitem__(self, key, value):
-        self.store[self.__keytransform__(key)] = value
-
-    def __delitem__(self, key):
-        del self.store[self.__keytransform__(key)]
-
-    def __iter__(self):
-        return iter(self.store)
-
-    def __len__(self):
-        return len(self.store)
-
-    def __keytransform__(self, key):
-        """Return a default value if key has no value yet."""
-        try:
-            self.store[key]
-        except KeyError:
-            self.store[key] = self.default_value
-        finally:
-            return key
 
 
 class Task():
@@ -75,19 +40,28 @@ class Task():
         self.execution_times = []
 
 
+    def __str__(self):
+        return self.task.__name__
+
+
 class EDF():
 
     def __init__(self):
         """Initialize the EDF internals."""
-        self.pool = TaskPool()
+        self.pool = {}
 
 
     def add_job(self, function, interval, one_shot = False):
         """Add task to EDF scheduler, with period interval."""
         task = Task(function, interval, one_shot)
-        task_pool = self.pool[interval]
+        task_pool = []
+        try:
+            task_pool = self.pool[interval]
+        except:
+            pass
         task_pool.append(task)
         task_pool.sort(key=lambda x: x.deadline)
+        self.pool[interval] = task_pool
 
 
     def remove_job(self, function, interval = None):
@@ -130,11 +104,14 @@ class EDF():
     def start(self):
         """Begin execution of scheduled tasks."""
         # TODO: spawn thread to execute tasks
+        count = time() + 4
         while True:
             task = self.pop_task()
-            print('Executing task %s' % task)
             ret = self.execute(task)
-            print('Executed task %s with ret value: %s' % (task, ret))
+            print('ret: %s' % ret)
+
+            if time() > count:
+                exit()
 
 
     def stop(self):
@@ -184,11 +161,10 @@ def print_troll():
 
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     scheduler = EDF()
     print('Scheduling jobs')
     scheduler.add_job(print_time, 1)
-    scheduler.add_job(print_troll, 5)
+    scheduler.add_job(print_troll, 2)
     print('Beginning scheduler')
     scheduler.start()
-task
