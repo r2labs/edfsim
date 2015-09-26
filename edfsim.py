@@ -15,6 +15,10 @@ from time import time
 from collections import MutableMapping
 
 
+class NoScheduledTaskException(Exception):
+    pass
+
+
 class TaskPool(MutableMapping):
 
     """Behave like a dict, but return an empty list on undefined key access."""
@@ -65,6 +69,7 @@ class Task():
         """
         self.task = task
         self.interval = interval
+        self.one_shot = one_shot
         self.last_ran = last_ran
         self.deadline = time() + interval
 
@@ -80,9 +85,22 @@ class EDF():
         """Add task to EDF scheduler, with period interval."""
         task = Task(function, interval, one_shot)
         task_pool = self.pool[interval]
-        # TODO: resume sorting
-        task_pool.insert(task)
-        self.pool[interval] += task
+        task_pool += task
+        task_pool.sort(lambda x: x.deadline)
+
+
+    def remove_job(self, function, interval = None):
+        # TODO : call remove_task
+        if interval is None:
+            for intvl, task_pool in self.pool.items():
+                if interval is not None:
+                    break
+                for task in task_pool:
+                    if task.task == function:
+                        interval = intvl
+                        break
+
+        remove_task(task, interval)
 
 
     def remove_task(self, task, interval = None):
@@ -94,30 +112,52 @@ class EDF():
                                  searching time
 
         """
-        pass
+        if interval is None:
+            for intvl, task_pool in self.pool.items():
+                if interval is not None:
+                    break
+                for task in task_pool:
+                    if task == task:
+                        interval = intvl
+                        break
+
+        task_pool = self.pool[interval]
+        task_pool.remove(task)
+        self.pool[interval] = task_pool
 
 
-    def execute():
+    def start(self):
         """Begin execution of scheduled tasks."""
         # TODO: spawn thread to execute tasks
         pass
 
 
-    def stop():
+    def stop(self):
         """Stop execution of scheduled tasks."""
         # TODO: stop thread executing tasks
         pass
 
 
-    def pop_task():
-        """Select the next EDF task."""
-        # TODO: make this a real task with dummy defaults
-        edf_task = None
-        for interval, task_queue in self.pool.items():
-            task = task_queue[0]
-            if task.deadline < edf_task.deadline:
-                edf_task = task
-        return edf_task
+    def execute(self, task):
+        """Execute task."""
+        pass
+
+
+    def pop_task(self):
+        """Select the next EDF task.
+
+        One-shot tasks are not re-scheduled.
+
+        """
+        try:
+            tasks = [q[0] for interval, q in self.pool.items()]
+            tasks.sort(lambda x: x.deadline)
+            edf = tasks[0]
+            if edf.one_shot:
+                self.remote_task(edf)
+            return edf
+        except:
+            raise NoScheduledTaskException()
 
 
 
@@ -136,4 +176,4 @@ if __name__ == "__main__":
     scheduler.add_job(print_time, 1)
     scheduler.add_job(print_troll, 5)
     print('Beginning scheduler')
-    scheduler.execute()
+    scheduler.start()
