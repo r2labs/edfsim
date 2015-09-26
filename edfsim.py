@@ -72,6 +72,7 @@ class Task():
         self.one_shot = one_shot
         self.last_ran = last_ran
         self.deadline = time() + interval
+        self.execution_times = []
 
 
 class EDF():
@@ -85,8 +86,8 @@ class EDF():
         """Add task to EDF scheduler, with period interval."""
         task = Task(function, interval, one_shot)
         task_pool = self.pool[interval]
-        task_pool += task
-        task_pool.sort(lambda x: x.deadline)
+        task_pool.append(task)
+        task_pool.sort(key=lambda x: x.deadline)
 
 
     def remove_job(self, function, interval = None):
@@ -129,7 +130,11 @@ class EDF():
     def start(self):
         """Begin execution of scheduled tasks."""
         # TODO: spawn thread to execute tasks
-        pass
+        while True:
+            task = self.pop_task()
+            print('Executing task %s' % task)
+            ret = self.execute(task)
+            print('Executed task %s with ret value: %s' % (task, ret))
 
 
     def stop(self):
@@ -140,7 +145,14 @@ class EDF():
 
     def execute(self, task):
         """Execute task."""
-        pass
+        execution_start = time()
+        ret = task.task()
+        execution_end = time()
+        execution_time = execution_end - execution_start
+        task.execution_times.append(execution_time)
+        task.last_ran = time()
+        task.deadline = time() + task.interval
+        return ret
 
 
     def pop_task(self):
@@ -151,7 +163,7 @@ class EDF():
         """
         try:
             tasks = [q[0] for interval, q in self.pool.items()]
-            tasks.sort(lambda x: x.deadline)
+            tasks.sort(key=lambda x: x.deadline)
             edf = tasks[0]
             if edf.one_shot:
                 self.remote_task(edf)
@@ -163,10 +175,12 @@ class EDF():
 
 def print_time():
     print('Current time: %s' % time())
+    return 1
 
 
 def print_troll():
     print("\t\tI'm a grumpy old troll, heh")
+    return 2
 
 
 
@@ -177,3 +191,4 @@ if __name__ == "__main__":
     scheduler.add_job(print_troll, 5)
     print('Beginning scheduler')
     scheduler.start()
+task
